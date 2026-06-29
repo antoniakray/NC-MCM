@@ -37,9 +37,8 @@ class Database:
         except Exception as e:
             raise ValueError(f"Error loading MATLAB data from {data_path}: {e}")
 
-        #data = data_dict['NoStim_Data']
-        data = data_dict['WT_NoStim'] #I changed this because in the dataset I am using, this name was used
-
+        data = data_dict['NoStim_Data']
+    
         delta_f_over_fbc = data['deltaFOverF_bc'][self.dataset_no]
         neuron_names = data['NeuronNames'][self.dataset_no]
         fps = data['fps'][self.dataset_no]
