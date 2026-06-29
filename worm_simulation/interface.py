@@ -92,7 +92,7 @@ class WormSimulationInterface:
             duration_par = time.time() - start_par
             parallel_times.append(duration_par)
 
-        Visualiser.plot_scalability_analysis(run_sizes, sequential_times, parallel_times)
+        Visualiser.plot_interactive_scalability_analysis(run_sizes, sequential_times, parallel_times)
 
 
     def plot_sample_trajectory(self, query_data: dict, run_index: int = 0): 
@@ -142,9 +142,10 @@ class WormSimulationInterface:
                 ci = ci, 
             )
 
-        Visualiser.plot_query(result, target_state)
+        Visualiser.plot_interactive_query(result, start_state, target_state, steps, num_runs)
 
         return result
+
 
     def evaluate_counterfactual(self, start_state: str, target_state: str, steps: int = 100, num_runs: int = 1000, ci: float = 0.95, run_parallel: bool = False, num_workers: int = 4, severed_edges: list[tuple[str, str]] = None): 
         """
@@ -179,8 +180,8 @@ class WormSimulationInterface:
                 severed_edges = severed_edges
             )
 
-        Visualiser.plot_query(factual_results, target_state)
-        Visualiser.plot_query(counterfactual_results, target_state, is_counterfactual=True)
+        Visualiser.plot_interactive_query(factual_results, start_state, target_state, steps, num_runs)
+        Visualiser.plot_interactive_query(counterfactual_results, start_state, target_state, steps, num_runs, is_counterfactual=True, filename="counterfactual.html")
 
         return factual_results, counterfactual_results
 
@@ -191,7 +192,7 @@ class WormSimulationInterface:
         - query_metrics: the output of a query evaluation
         - max_states: the maximal number of states that will be considered
         """
-        Visualiser.plot_traversed_states(query_metrics, max_states)
+        Visualiser.plot_interactive_frequent_states(query_metrics, max_states)
 
     def plot_network_topology(self, min_probability: float = 0.05, max_probability: float = 0.95, filename: str = None): 
         """
@@ -202,6 +203,61 @@ class WormSimulationInterface:
         - filename: if a filename is provided the graph will be saved in an external file
         """ 
         Visualiser.plot_network_topology(self.evaluator, min_probability, max_probability, filename)
+
+    def plot_interactive_network_topology(self, min_probability: float = 0.05, max_probability: float = 0.95, filename: str = "topology.html"): 
+        """
+        Plots the topology of the entire network. 
+        Parameters: 
+        - min_probability: connections with a probability that is less than this value will not be considered
+        - max_probability: connections with a probability that is higher than this value will not be considered
+        - filename: if a filename is provided the graph will be saved in an external file
+        """
+        
+        return Visualiser.plot_interactive_topology(self.evaluator, min_probability, max_probability, filename)
+
+    def plot_interactive_sample_trajectory(self, query_data: dict, run_index: int = 0, filename: str = "trajectory.html"): 
+        """
+        Plots the trajectory of a specified run. 
+        Parameters: 
+        - query_data: output of a query evaluation
+        - run_index: the index of the specified run
+        - filename: optional filename, if provided the plot will be saved to a file of that name
+        """
+        if run_index >= len(query_data["trajectories"]): 
+            raise IndexError(f"Run index {run_index} out of bounds.")
+
+        target_trajectory = query_data["trajectories"][run_index]
+        title = "Test"
+        return Visualiser.plot_interactive_trajectory(target_trajectory, title)
+
+    def evaluate_sequence_query(self, start_state: str, sequence: list[str], steps: int = 100, num_runs: int = 1000, ci: float = 0.95, run_parallel: bool = False, num_workers: int = 4, filename: str = "sequence_query.html"): 
+        
+        if run_parallel: 
+            result = self.evaluator.evaluate_sequence_query(
+                    start_state = start_state, 
+                    sequence = sequence, 
+                    steps = steps, 
+                    num_runs = num_runs, 
+                    ci = ci,  
+                    num_workers = num_workers
+                )
+
+        else: 
+            result = self.evaluator.evaluate_sequence_query(
+                start_state = start_state, 
+                sequence = sequence,
+                steps = steps, 
+                num_runs = num_runs, 
+                ci = ci, 
+            )
+
+        sequence_start_ids = result["sequence_start_indices"]
+
+        Visualiser.plot_interactive_query(result, start_state, sequence[-1], steps, num_runs, is_sequence=True, sequence=sequence, filename=filename)
+
+        return result
+
+        
             
             
 

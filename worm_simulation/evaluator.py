@@ -206,8 +206,8 @@ class MarkovQueryEvaluator:
         Private method to calculate the proportions for a binomial confidence interval. Uses standard normal distribution. 
         Returns tuple with the (lower, uppper) proportions. 
         Parameters: 
-        - p: 
-        - n: 
+        - p: sample proportion
+        - n: sample size
         - confidence: the confidence interval
         """
         standard_error = math.sqrt((p * (1.0 - p)) / n)
@@ -285,15 +285,14 @@ class MarkovQueryEvaluator:
 
         if not results: 
             return {
-                 "x_steps": list(range(0, steps + 1)),
+                "x_steps": list(range(0, steps + 1)),
                 "frequencies": [0] * (steps + 1),
                 "success_rate": f"0/{num_runs} (0.0%)", 
                 "ci_level": f"{ci * 100:.0f}%", 
                 "ci_bounds": (0.0, 0.0),
                 "state_traversal_counts": {label: 0 for label in self.labels}, 
                 "contexts": [],
-                "successful_runs": 0, 
-                "trajectories": trajectories
+                "successful_runs": 0
                 
             }
         
@@ -326,3 +325,96 @@ class MarkovQueryEvaluator:
             "successful_runs": total_successful_runs, 
             "trajectories": trajectories
         }
+
+    def evaluate_sequence_query(self, start_state: str, sequence: list[str], steps: int, num_runs: int, ci: float = 0.95, severed_edges: list[tuple[str, str]] = None, imported_contexts: list[list[float]] = None) -> dict: 
+        """
+        askdjfas
+        Parameters: 
+        - 
+        """
+        if ci > 1.0 or ci < 0.0: 
+            raise ValueError("The confidence interval must be a float between 0.0 and 1.0")
+
+        if not sequence: 
+            raise ValueError("Target sequence cannot be empty.")
+
+        for state in sequence: 
+            if state not in self.labels: 
+                raise ValueError(f"State {state} is invalid.")
+        
+        num_steps_across_all_runs = []
+        successful_runs = 0 
+        state_traversal_counts = {label: 0 for label in self.labels}
+        export_contexts = []
+        trajectories = []
+        sequence_start_indices = []
+
+        for run_idx in range(num_runs): 
+            context = imported_contexts[run_idx] if imported_contexts is not None else None 
+
+            #extract the trajectory and the context for this specific run 
+            trajectory, recorded_context = self.simulate_trajectory(start_state, sequence[-1], steps, severed_edges=severed_edges, execution_context=context)
+            trajectories.append(trajectory)
+
+            if imported_contexts is None: 
+                export_contexts.append(recorded_context)
+
+            for state in set(trajectory): 
+                state_traversal_counts[state] += 1
+
+            first_reach_id = self._find_sequence_in_trajectory(trajectory, sequence)
+            sequence_start_indices.append(first_reach_id)
+
+            if first_reach_id != -1: 
+                successful_runs += 1
+                num_steps_across_all_runs.append(first_reach_id)
+
+        if successful_runs <= 0: 
+            return {
+                "x_steps": list(range(0, steps + 1)),
+                "frequencies": [0] * (steps + 1),
+                "success_rate": f"0/{num_runs} (0.0%)", 
+                "ci_level": f"{ci * 100:.0f}%", 
+                "ci_bounds": (0.0, 0.0), 
+                "state_traversal_counts": state_traversal_counts, 
+                "contexts": export_contexts, 
+                "successful_runs": successful_runs,
+                "trajectories": trajectories, 
+                "sequence_start_indices": sequence_start_indices
+            }
+
+        counts = Counter(num_steps_across_all_runs)
+        plot_x_steps = list(range(0, steps + 1))
+        frequencies = [counts.get(step, 0) for step in plot_x_steps]
+        p = successful_runs / num_runs 
+        successful_percentage = p * 100
+
+        ci_lower, ci_upper = self._calculate_binomial_ci(p, num_runs, ci)
+
+
+        return {
+            "x_steps": plot_x_steps,
+            "frequencies": frequencies,
+            "success_rate": f"{successful_runs}/{num_runs} ({successful_percentage:.1f}%)", 
+            "ci_level": f"{ci * 100:.0f}%", 
+            "ci_bounds": (round(ci_lower * 100, 2), round(ci_upper * 100, 2)), 
+            "state_traversal_counts": state_traversal_counts, 
+            "contexts": export_contexts, 
+            "successful_runs": successful_runs,
+            "trajectories": trajectories, 
+            "sequence_start_indices": sequence_start_indices
+        }
+
+    def _find_sequence_in_trajectory(self, trajectory: list[str], sequence: list[str]) -> int: 
+        n = len(trajectory)
+        k = len(sequence)
+        for i in range(n - k + 1): 
+            if trajectory[i : i+k] == sequence: 
+                return i
+        return -1
+        
+
+        
+
+
+        
