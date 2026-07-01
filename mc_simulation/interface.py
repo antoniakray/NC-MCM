@@ -43,33 +43,9 @@ class WormSimulationInterface:
         """
         Helper method to allow the user to get all the possible states of the worm. 
         """
-        print(self.evaluator.labels)
-    
-    def plot_parallel_benchmark(self, start_state: str, target_state: str, steps: int, num_runs: int, ci: float = 0.95, severed_edges: list[tuple[str, str]] = None, imported_contexts: list[list[float]] = None, num_workers: int = 4): 
-        """ 
-        calls normal query and parallel query, times how long each one takes to run. sends this data to visualizer.
-        output is a graph that shows the different speedup
-        Parameters: 
-        - start_state: label of the initial node
-        - target_state: label of the final node OR "all" to check if entire state space was explored
-        - steps: maximal number of iterations
-        - num_runs: total number of runs
-        - ci: the confidence interval 
-        - severed_edges: one or more pairs of states between which the connection will be set to 0 (only relevant for counterfactual runs)
-        - imported contexts: context of the factual run (only relevant for counterfactual runs)
-        - num_workers: the number of workers (only relevant for parallel runs) 
-        """
-        start_seq = time.time() 
-        self.evaluator.evaluate_query(start_state, target_state, steps, num_runs, ci, severed_edges, imported_contexts)
-        duration_seq = time.time() - start_seq
+        print(self.evaluator.labels) 
 
-        start_par = time.time() 
-        self.evaluator.parallel_evaluate_query(start_state, target_state, steps, num_runs, ci, severed_edges, imported_contexts, num_workers)
-        duration_par = time.time() - start_par
-
-        Visualiser.plot_parallel_benchmark(duration_seq, duration_par)  
-
-    def plot_scalability_analysis(self, start_state: str = "1-0", target_state: str = "2-0", steps: int = 100, run_sizes: list[int] = [100, 500, 1000, 5000, 10000, 50000], num_workers: int = 4, ci: float = 0.95): 
+    def plot_scalability_analysis(self, start_state: str = "1-0", target_state: str = "2-0", steps: int = 100, run_sizes: list[int] = [100, 500, 1000, 5000, 10000, 50000], num_workers: int = 4, ci: float = 0.95, filename: str = "scalability_analysis.html"): 
         """
         Runs a scalability analysis. 
         Parameters: 
@@ -77,6 +53,8 @@ class WormSimulationInterface:
         - target_state: label of the final node OR "all" to check if entire state space was explored
         - steps: maximal number of iterations
         - num_workers: the number of workers
+        - ci: the confidence interval
+        - filename: optional filename, if provided the plot will be saved to a file of that name
         """
         sequential_times = []
         parallel_times = []
@@ -92,15 +70,16 @@ class WormSimulationInterface:
             duration_par = time.time() - start_par
             parallel_times.append(duration_par)
 
-        Visualiser.plot_interactive_scalability_analysis(run_sizes, sequential_times, parallel_times)
+        Visualiser.plot_interactive_scalability_analysis(run_sizes, sequential_times, parallel_times, filename)
 
 
-    def plot_sample_trajectory(self, query_data: dict, run_index: int = 0): 
+    def plot_sample_trajectory(self, query_data: dict, run_index: int = 0, filename: str = "sample_trajectory.html"): 
         """
         Plots the trajectory of a specified run. 
         Parameters: 
         - query_data: output of a query evaluation
         - run_index: the index of the specified run
+        - filename: optional filename, if provided the plot will be saved to a file of that name
         """
         if run_index >= len(query_data["trajectories"]): 
             raise IndexError(f"Run index {run_index} out of bounds.")
@@ -109,9 +88,9 @@ class WormSimulationInterface:
         start_state = target_trajectory[0]
         steps_taken = len(target_trajectory) - 1
         title = f"Trajectory Path for Worm {self.worm_id}, Run {run_index}, Start State: {start_state}, Steps Taken: {steps_taken}"
-        Visualiser.plot_trajectory(target_trajectory, title)
+        Visualiser.plot_trajectory(target_trajectory, title, filename)
 
-    def evaluate_query(self, start_state: str, target_state: str, steps: int = 100, num_runs: int = 1000, ci: float = 0.95, run_parallel: bool = False, num_workers: int = 4): 
+    def evaluate_query(self, start_state: str, target_state: str, steps: int = 100, num_runs: int = 1000, ci: float = 0.95, run_parallel: bool = False, num_workers: int = 4, filename: str = "query.html"): 
         """
         Runs a query evaluation. Outputs a plot that shows after how many steps target_state was reached across all performed runs. 
         Parameters: 
@@ -122,15 +101,16 @@ class WormSimulationInterface:
         - ci: the confidence interval
         - run_parallel: decides if the runs should be executed in parallel or sequentially
         - num_workers: the number of workers (only relevant for parallel runs)
+        - filename: optional filename, if provided the plot will be saved to a file of that name
         """
         if run_parallel: 
-            result = self.evaluator.evaluate_query(
+            result = self.evaluator.parallel_evaluate_query(
                     start_state = start_state, 
                     target_state = target_state, 
                     steps = steps, 
                     num_runs = num_runs, 
                     ci = ci,  
-                    num_workers = num_workers
+                    num_workers = num_workers, 
                 )
 
         else: 
@@ -142,12 +122,12 @@ class WormSimulationInterface:
                 ci = ci, 
             )
 
-        Visualiser.plot_interactive_query(result, start_state, target_state, steps, num_runs)
-
+        factual_figure =Visualiser.plot_interactive_query(result, start_state, target_state, steps, num_runs, filename=filename)
+        
         return result
 
 
-    def evaluate_counterfactual(self, start_state: str, target_state: str, steps: int = 100, num_runs: int = 1000, ci: float = 0.95, run_parallel: bool = False, num_workers: int = 4, severed_edges: list[tuple[str, str]] = None): 
+    def evaluate_counterfactual(self, start_state: str, target_state: str, steps: int = 100, num_runs: int = 1000, ci: float = 0.95, run_parallel: bool = False, num_workers: int = 4, severed_edges: list[tuple[str, str]] = None, filename_factual: str = "factual_query.html", filename_counterfactual: str = "counterfactual_query.html"): 
         """
         Runs a counterfactual evaluation. Outputs a plot of the factual query that shows after how many iterations the target state was reached. Additionally outputs the same plot for the counterfactual query. 
         Parameters: 
@@ -159,6 +139,8 @@ class WormSimulationInterface:
         - run_parallel: decides if the runs should be executed in parallel or sequentially
         - num_workers: the number of workers (only relevant for parallel runs)
         - severed_edges: one or more pairs of states between which the connection will be set to 0 (only relevant for counterfactual runs)
+        - filename_factual: optional filename for the factual query plot
+        - filename_counterfactual: optional filename for the counterfactual query plot
         """
         if run_parallel: 
             factual_results, counterfactual_results = self.evaluator.evaluate_counterfactual_query(
@@ -180,8 +162,8 @@ class WormSimulationInterface:
                 severed_edges = severed_edges
             )
 
-        Visualiser.plot_interactive_query(factual_results, start_state, target_state, steps, num_runs)
-        Visualiser.plot_interactive_query(counterfactual_results, start_state, target_state, steps, num_runs, is_counterfactual=True, filename="counterfactual.html")
+        Visualiser.plot_interactive_query(factual_results, start_state, target_state, steps, num_runs, filename=filename_factual)
+        Visualiser.plot_interactive_query(counterfactual_results, start_state, target_state, steps, num_runs, is_counterfactual=True, filename=filename_counterfactual)
 
         return factual_results, counterfactual_results
 
@@ -193,16 +175,6 @@ class WormSimulationInterface:
         - max_states: the maximal number of states that will be considered
         """
         Visualiser.plot_interactive_frequent_states(query_metrics, max_states)
-
-    def plot_network_topology(self, min_probability: float = 0.05, max_probability: float = 0.95, filename: str = None): 
-        """
-        Plots the topology of the entire network. 
-        Parameters: 
-        - min_probability: connections with a probability that is less than this value will not be considered
-        - max_probability: connections with a probability that is higher than this value will not be considered
-        - filename: if a filename is provided the graph will be saved in an external file
-        """ 
-        Visualiser.plot_network_topology(self.evaluator, min_probability, max_probability, filename)
 
     def plot_interactive_network_topology(self, min_probability: float = 0.05, max_probability: float = 0.95, filename: str = "topology.html"): 
         """
@@ -228,9 +200,10 @@ class WormSimulationInterface:
 
         target_trajectory = query_data["trajectories"][run_index]
         title = "Test"
-        return Visualiser.plot_interactive_trajectory(target_trajectory, title)
+        return Visualiser.plot_interactive_trajectory(target_trajectory, title, filename)
 
     def evaluate_sequence_query(self, start_state: str, sequence: list[str], steps: int = 100, num_runs: int = 1000, ci: float = 0.95, run_parallel: bool = False, num_workers: int = 4, filename: str = "sequence_query.html"): 
+        
         
         if run_parallel: 
             result = self.evaluator.evaluate_sequence_query(
